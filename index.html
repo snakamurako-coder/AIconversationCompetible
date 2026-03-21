@@ -742,7 +742,13 @@
           Contact: snakamurako@yamagataps.jp
         </div>
         <button id="btnRefresh" class="btn-secondary">ページ更新</button>
+        <button id="btnDiagnose" class="btn-secondary" title="GAS接続の診断">接続診断</button>
       </div>
+    </div>
+    <!-- バグ特定用：診断パネル（?debug=1 で表示） -->
+    <div id="diagnosePanel" class="card hidden" style="background:var(--bg-secondary);font-family:monospace;font-size:0.75rem;">
+      <h3>🔧 GAS接続診断ログ</h3>
+      <div id="diagnoseLog" style="max-height:200px;overflow-y:auto;white-space:pre-wrap;padding:.5rem;border:1px solid var(--border-color);border-radius:4px;"></div>
     </div>
 
     <!-- Identity -->
@@ -987,7 +993,7 @@
     let currentUtterance = null; // ★ GC対策：グローバル変数で保持
 
     // GAS REST 呼び出し設定（APP_CONFIG で上書き可能、未設定時は以下を使用）
-    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbzifZtAmDnNugDlb9FX2OD5BjsBsiHM53GzJErYtHxnxke8ep6-HA1zw2OiHyf8ryK2/exec';
+    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbwTOqo-4UCUpGvNEXyQ3ztE9DCypz5X7G_BQrnBvd9ceJJhjIT5zv5TLcHxlhbTb_Tn/exec';
     let CLIENT_ID = (window.APP_CONFIG && window.APP_CONFIG.CLIENT_ID) || '505252303455-84r495bnnsgiefcrv24ro2qtohlgbk2h.apps.googleusercontent.com';
     let AUTH_TOKEN = '';
 
@@ -995,28 +1001,139 @@
       return !GAS_URL || GAS_URL.includes('YOUR_DEPLOYMENT_ID') || !CLIENT_ID || CLIENT_ID.includes('YOUR_CLIENT_ID');
     }
 
+    // バグ特定用：診断ログ（?debug=1 で有効）
+    const GAS_DEBUG = /[?&]debug=1/.test(location.search);
+    function diagLog(msg, ok) {
+      const el = document.getElementById('diagnoseLog');
+      if (!el) return;
+      const ts = new Date().toISOString().slice(11, 23);
+      const line = `[${ts}] ${msg}` + (ok !== undefined ? (ok ? ' ✓' : ' ✗') : '');
+      el.textContent += line + '\n';
+      el.scrollTop = el.scrollHeight;
+      console.log('[GAS診断]', line);
+    }
+
     async function callGAS(action, payload = {}) {
-      if (configNotSet()) throw new Error('設定未完了: GAS_URL / CLIENT_ID を設定してください');
-      // Content-Type: text/plain でプリフライト（OPTIONS）を回避（GAS は OPTIONS 非対応のため）
-      const res = await fetch(GAS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action, idToken: AUTH_TOKEN, ...payload })
-      });
-      const text = await res.text();
+      const step = (n, msg) => { if (GAS_DEBUG) diagLog(`Step ${n}: ${msg}`); };
+      step(0, `callGAS(${action}) 開始`);
+
+      if (configNotSet()) { step(1, '設定未完了'); throw new Error('設定未完了: GAS_URL / CLIENT_ID を設定してください'); }
+      step(1, '設定OK');
+
+      const data = { action, idToken: AUTH_TOKEN, ...payload };
+      const body = 'd=' + encodeURIComponent(JSON.stringify(data));
+      step(2, `fetch送信開始 (${GAS_URL.slice(0, 50)}...)`);
+
+      let res;
+      try {
+        res = await fetch(GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body
+        });
+        step(3, `fetch完了 status=${res.status} type=${res.type}`);
+      } catch (e) {
+        step(3, `fetch失敗: ${e.name} ${e.message}`);
+        throw new Error(`Step3失敗: ${e.name} - ${e.message}`);
+      }
+
+      let text;
+      try {
+        text = await res.text();
+        step(4, `応答取得 len=${(text || '').length} 先頭="${(text || '').trim().slice(0, 50)}..."`);
+      } catch (e) {
+        step(4, `res.text()失敗: ${e.message}`);
+        throw new Error(`Step4失敗: ${e.message}`);
+      }
+
       const trim = (text || '').trim();
       if (!trim.startsWith('{') && !trim.startsWith('[')) {
+        step(5, `JSONでない応答 (HTML等)`);
         throw new Error('GASがHTMLを返しました。URL・認証設定・デプロイを確認してください。(' + (trim.slice(0, 80).replace(/\s+/g, ' ') || res.status) + ')');
       }
+      step(5, '応答はJSON形式');
+
       let json;
       try {
         json = JSON.parse(text);
+        step(6, `JSONパース成功 status=${json.status}`);
       } catch (e) {
+        step(6, `JSONパース失敗: ${e.message}`);
         throw new Error('GASの応答がJSONではありません: ' + (trim.slice(0, 80) || res.status));
       }
-      if (json.status === 'error') throw new Error(json.message || 'GAS error');
+
+      if (json.status === 'error') { step(7, `GAS側エラー: ${json.message}`); throw new Error(json.message || 'GAS error'); }
+      step(7, '成功');
       if (json.status === 'success' && json.data !== undefined) return json.data;
       return json;
+    }
+
+    async function runGASDiagnostic() {
+      const panel = document.getElementById('diagnosePanel');
+      const log = document.getElementById('diagnoseLog');
+      if (panel && log) {
+        panel.classList.remove('hidden');
+        log.textContent = '';
+      }
+      diagLog('=== GAS接続診断 開始 ===');
+      diagLog(`origin: ${location.origin} protocol: ${location.protocol}`);
+      diagLog(`GAS_URL: ${GAS_URL}`);
+      if (location.protocol === 'file:') diagLog('⚠ file:// はCORSでブロックされます', false);
+
+      try {
+        diagLog('Step1: 設定チェック');
+        if (configNotSet()) throw new Error('GAS_URL/CLIENT_ID未設定');
+        diagLog('Step1: OK', true);
+
+        diagLog('Step2: リクエストbody構築');
+        const data = { action: 'list_books', idToken: AUTH_TOKEN, forceUpdate: false };
+        const body = 'd=' + encodeURIComponent(JSON.stringify(data));
+        diagLog('Step2: OK', true);
+
+        diagLog('Step3: fetch() 送信');
+        let res;
+        try {
+          res = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body
+          });
+        } catch (e) {
+          diagLog(`Step3: 失敗 - ${e.name}: ${e.message}`, false);
+          diagLog('※ Failed to fetch → CORS/ネットワーク/URL確認');
+          return;
+        }
+        diagLog(`Step3: OK status=${res.status} type=${res.type}`, true);
+
+        diagLog('Step4: res.text() 取得');
+        const text = await res.text();
+        diagLog(`Step4: OK len=${text.length} 先頭="${text.trim().slice(0, 60)}..."`, true);
+
+        diagLog('Step5: JSON形式チェック');
+        const trim = text.trim();
+        if (!trim.startsWith('{') && !trim.startsWith('[')) {
+          diagLog(`Step5: 失敗 - HTML等を返却`, false);
+          diagLog(`先頭80文字: ${trim.slice(0, 80)}`);
+          return;
+        }
+        diagLog('Step5: OK', true);
+
+        diagLog('Step6: JSON.parse');
+        const json = JSON.parse(text);
+        diagLog(`Step6: OK status=${json.status}`, true);
+
+        diagLog('Step7: 業務レスポンス確認');
+        if (json.status === 'error') {
+          diagLog(`Step7: GAS側エラー - ${json.message}`, false);
+          return;
+        }
+        diagLog('Step7: 全成功', true);
+        diagLog(`取得件数: ${Array.isArray(json.data) ? json.data.length : '(構造確認)'}件`);
+      } catch (e) {
+        diagLog(`例外: ${e.message}`, false);
+        if (e.stack) diagLog(e.stack);
+      }
+      diagLog('=== 診断終了 ===');
     }
 
     async function gasAction(fnName, args) {
@@ -1579,8 +1696,13 @@
           statusRun('');
         }
       } catch (err) {
-        statusRun('ブック読み込みエラー：' + err.message);
-        statusSubmit(err.message, true);
+        let msg = err.message || String(err);
+        if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) {
+          const hint = location.protocol === 'file:' ? ' ※ file://では動作しません。GitHub Pages やローカルサーバー（例: npx serve）で開いてください。' : ' ※ GASのデプロイURL・「全員に公開」設定を確認してください。';
+          msg = '接続失敗（CORS/ネットワーク）' + hint;
+        }
+        statusRun('ブック読み込みエラー：' + msg);
+        statusSubmit(msg, true);
       } finally {
         setBusy(false);
         updateUI();
@@ -1600,6 +1722,9 @@
       userInput.addEventListener('input', updateUI);
       btnRecToggle.addEventListener('click', toggleRecognition);
       btnRefresh.addEventListener('click', refreshThemesOnly);
+      const btnDiagnose = el('btnDiagnose');
+      if (btnDiagnose) btnDiagnose.addEventListener('click', runGASDiagnostic);
+      if (GAS_DEBUG) { const p = el('diagnosePanel'); if (p) p.classList.remove('hidden'); }
       if (btnLogin) btnLogin.addEventListener('click', () => { if (window.google && google.accounts && google.accounts.id) { google.accounts.id.prompt(); } else { setLoginStatusText('Google Sign-In未ロード'); } });
       const btnLogout = el('btnLogout');
       if (btnLogout) btnLogout.addEventListener('click', logout);
