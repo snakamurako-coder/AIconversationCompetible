@@ -763,6 +763,7 @@
         </div>
         <div>
           <div class="small" id="loginStatus">未ログイン</div>
+          <button id="btnLogout" class="btn-secondary" style="margin-top:.35rem;">ログアウト</button>
         </div>
       </div>
 
@@ -985,19 +986,22 @@
     let ttsEndTime = 0; // TTS終了時刻（エコー防止用）
     let currentUtterance = null; // ★ GC対策：グローバル変数で保持
 
-    // GAS REST 呼び出し設定（デプロイ時に必ず置き換える）
-    let GAS_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec'; // 要差し替え
-    let CLIENT_ID = 'YOUR_CLIENT_ID.apps.googleusercontent.com'; // 要差し替え
+    // GAS REST 呼び出し設定（デプロイ時に必ず指定）
+    // window.APP_CONFIG = { GAS_URL: 'https://script.google.com/macros/s/AKfycbyF7ZxuqtSqJQTiczEkpKUjRqSJPUg1xjzyPC84pm5-Ur5BAYdBj8oHGIFa062flrFB/exec', CLIENT_ID: '505252303455-84r495bnnsgiefcrv24ro2qtohlgbk2h.apps.googleusercontent.com' } で上書き可能
+    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || '';
+    let CLIENT_ID = (window.APP_CONFIG && window.APP_CONFIG.CLIENT_ID) || '';
+    let AUTH_TOKEN = '';
 
     function configNotSet() {
       return !GAS_URL || GAS_URL.includes('YOUR_DEPLOYMENT_ID') || !CLIENT_ID || CLIENT_ID.includes('YOUR_CLIENT_ID');
     }
 
     async function callGAS(action, payload = {}) {
+      if (configNotSet()) throw new Error('設定未完了: GAS_URL / CLIENT_ID を設定してください');
       const res = await fetch(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, ...payload })
+        body: JSON.stringify({ action, idToken: AUTH_TOKEN, ...payload })
       });
       const json = await res.json();
       if (json.status === 'error') throw new Error(json.message || 'GAS error');
@@ -1131,18 +1135,19 @@
       updatePhaseButton();
     }
     function saveIdentityLocally() {
-      try { localStorage.setItem('userInfo', JSON.stringify(gIdentity)); } catch (e) { console.warn('localStorage save failed', e); }
+      try { localStorage.setItem('userInfo', JSON.stringify({ gIdentity, AUTH_TOKEN })); } catch (e) { console.warn('localStorage save failed', e); }
     }
     function loadIdentityLocally() {
       try {
         const raw = localStorage.getItem('userInfo');
         if (!raw) return;
         const parsed = JSON.parse(raw);
-        if (parsed && parsed.status) {
-          gIdentity = parsed;
-          acctEmail.textContent = parsed.email || '—';
-          wlName.textContent = parsed.name || '—';
-          wlId4.textContent = parsed.id4 || '—';
+        if (parsed && parsed.gIdentity) {
+          gIdentity = parsed.gIdentity;
+          AUTH_TOKEN = parsed.AUTH_TOKEN || '';
+          acctEmail.textContent = gIdentity.email || '—';
+          wlName.textContent = gIdentity.name || '—';
+          wlId4.textContent = gIdentity.id4 || '—';
           if (isLoggedIn()) { wlOk.classList.remove('hidden'); wlNg.classList.add('hidden'); }
           refreshIdentityBadges();
           setLoginStatusText('前回ログイン情報を復元');
@@ -1188,11 +1193,25 @@
         const res = await callGAS('login', { idToken });
         const user = res && res.user ? res.user : res;
         fillIdentityFromUser(user);
+        AUTH_TOKEN = idToken;
         saveIdentityLocally();
         setLoginStatusText('ログイン済み');
       } catch (err) {
         console.error(err);
         setLoginStatusText('ログイン失敗: ' + err.message);
+    function logout() {
+      AUTH_TOKEN = '';
+      gIdentity = { status: 'guest', email: '', name: '', id4: '', selfCheck: '' };
+      acctEmail.textContent = '—';
+      wlName.textContent = '—';
+      wlId4.textContent = '—';
+      wlOk.classList.add('hidden');
+      wlNg.classList.add('hidden');
+      refreshIdentityBadges();
+      try { localStorage.removeItem('userInfo'); } catch (_) {}
+      updateUI();
+      setLoginStatusText('未ログイン');
+    }
       }
     }
 
@@ -1210,7 +1229,7 @@
         return;
       }
       google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onGoogleSignIn });
-      google.accounts.id.renderButton(btnLogin, { theme: 'outline', size: 'large' });
+      if (btnLogin) google.accounts.id.renderButton(btnLogin, { theme: 'outline', size: 'large' });
     }
 
     /* ========= 会話描画（AI＝初期非表示） ========= */
@@ -1307,8 +1326,8 @@
         try { rec.abort(); } catch (_) { } // stop()ではなくabort()でバッファを破棄
       }
 
-      // ユーザーの要望により、enableResumeが指定されたら必ず再開フラグを立てる（初回TTSでも再開させる）
-      _resumeRecAfterTTS = enableResume || recognizing || _resumeRecAfterTTS;
+      // enableResume が false の場合は必ずフラグを下ろす（意図しない再開を防ぐ）
+      _resumeRecAfterTTS = !!enableResume;
       await stopRecognitionAndWait();
     }
 
@@ -1571,6 +1590,8 @@
       btnRecToggle.addEventListener('click', toggleRecognition);
       btnRefresh.addEventListener('click', refreshThemesOnly);
       if (btnLogin) btnLogin.addEventListener('click', () => { if (window.google && google.accounts && google.accounts.id) { google.accounts.id.prompt(); } else { setLoginStatusText('Google Sign-In未ロード'); } });
+      const btnLogout = el('btnLogout');
+      if (btnLogout) btnLogout.addEventListener('click', logout);
       btnSelfYes.addEventListener('click', onSelfYes);
       btnSelfNo.addEventListener('click', onSelfNo);
       btnProxyDone.addEventListener('click', onProxyDone);
