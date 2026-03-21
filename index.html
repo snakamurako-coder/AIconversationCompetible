@@ -987,7 +987,7 @@
     let currentUtterance = null; // ★ GC対策：グローバル変数で保持
 
     // GAS REST 呼び出し設定（APP_CONFIG で上書き可能、未設定時は以下を使用）
-    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbyF7ZxuqtSqJQTiczEkpKUjRqSJPUg1xjzyPC84pm5-Ur5BAYdBj8oHGIFa062flrFB/exec';
+    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbzifZtAmDnNugDlb9FX2OD5BjsBsiHM53GzJErYtHxnxke8ep6-HA1zw2OiHyf8ryK2/exec';
     let CLIENT_ID = (window.APP_CONFIG && window.APP_CONFIG.CLIENT_ID) || '505252303455-84r495bnnsgiefcrv24ro2qtohlgbk2h.apps.googleusercontent.com';
     let AUTH_TOKEN = '';
 
@@ -1003,7 +1003,17 @@
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action, idToken: AUTH_TOKEN, ...payload })
       });
-      const json = await res.json();
+      const text = await res.text();
+      const trim = (text || '').trim();
+      if (!trim.startsWith('{') && !trim.startsWith('[')) {
+        throw new Error('GASがHTMLを返しました。URL・認証設定・デプロイを確認してください。(' + (trim.slice(0, 80).replace(/\s+/g, ' ') || res.status) + ')');
+      }
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        throw new Error('GASの応答がJSONではありません: ' + (trim.slice(0, 80) || res.status));
+      }
       if (json.status === 'error') throw new Error(json.message || 'GAS error');
       if (json.status === 'success' && json.data !== undefined) return json.data;
       return json;
