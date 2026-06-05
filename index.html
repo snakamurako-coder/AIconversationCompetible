@@ -886,7 +886,7 @@
           <div class="small">登録情報：</div>
           <div><b id="wlName">—</b>（４桁ID：<b id="wlId4">—</b>）</div>
         </div>
-        <div id="wl-ng" class="small hidden">氏名・4桁IDはホワイトリストに未登録です（メールアドレスで利用できます）。</div>
+        <div id="wl-ng" class="small hidden">氏名・4桁IDが未設定です（管理者に users シートの登録を依頼してください）。</div>
         <div class="pill"><span id="identBadge">未確定</span></div>
         <button id="btnLogout" class="btn-secondary" style="width:auto;">ログアウト</button>
       </div>
@@ -1077,7 +1077,7 @@
     let currentUtterance = null; // ★ GC対策：グローバル変数で保持
 
     // GAS REST 呼び出し設定（APP_CONFIG で上書き可能、未設定時は以下を使用）
-    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbzyA0fL055kkVq-KGivkYijA2R422v-Kys6oeHqFeIVOhFSwA78qQkJ-9CGdEk0BVtX/exec';
+    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbz-XTHTkXod42zssNUVEE8caZwMN83ZDPN_knlz1D0gRA-aaWF9GWhHc2jtoYXA1KNr/exec';
 
     const AUTH_LOCK_KEY = 'auth_locked_until';
     const AUTH_FAIL_KEY = 'auth_fail_count';
