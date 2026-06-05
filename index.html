@@ -301,26 +301,36 @@
 
     .auth-tabs {
       display: flex;
-      gap: 0;
-      border-bottom: 1px solid var(--border-color);
+      gap: 0.5rem;
+      padding: 0.35rem;
+      background: #dee2e6;
+      border-radius: var(--border-radius);
     }
 
     .auth-tab {
       flex: 1;
-      padding: .6rem;
-      background: none;
-      border: none;
+      padding: 0.7rem 1rem;
+      border: 2px solid transparent;
+      border-radius: calc(var(--border-radius) - 2px);
+      background: transparent;
       cursor: pointer;
       font-family: inherit;
       font-size: var(--font-size-base);
-      color: var(--text-color-muted);
+      font-weight: 500;
+      color: #495057;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .auth-tab:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.45);
     }
 
     .auth-tab.active {
-      border-bottom: 2px solid var(--primary-color);
-      font-weight: 600;
-      color: var(--text-color);
-      margin-bottom: -1px;
+      background: var(--surface-color);
+      border-color: var(--primary-color);
+      color: var(--primary-color);
+      font-weight: 700;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
     }
 
     .auth-tab-panel {
@@ -1077,7 +1087,7 @@
     let currentUtterance = null; // ★ GC対策：グローバル変数で保持
 
     // GAS REST 呼び出し設定（APP_CONFIG で上書き可能、未設定時は以下を使用）
-    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbz-XTHTkXod42zssNUVEE8caZwMN83ZDPN_knlz1D0gRA-aaWF9GWhHc2jtoYXA1KNr/exec';
+    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbxEREbIbLY18CkiicAzoYpmrbhCwLz2r506wd4-jT3vEhG1-aqBAsw4o2QJEwlZsxtM/exec';
 
     const AUTH_LOCK_KEY = 'auth_locked_until';
     const AUTH_FAIL_KEY = 'auth_fail_count';
@@ -1627,6 +1637,11 @@
     }
 
     async function initAuthUI() {
+      if (!configNotSet()) {
+        try {
+          await callGAS('ensure_users_book', {});
+        } catch (_) {}
+      }
       if (isClientLocked()) {
         const stillLocked = await syncClientLockWithServer();
         if (stillLocked) {
