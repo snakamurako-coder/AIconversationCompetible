@@ -12,7 +12,6 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
     rel="stylesheet">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <style>
     :root {
@@ -121,7 +120,9 @@
 
     select,
     textarea,
-    input[type="text"] {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
       width: 100%;
       font-size: var(--font-size-base);
       font-family: var(--font-family-base);
@@ -134,7 +135,9 @@
 
     select:focus,
     textarea:focus,
-    input[type="text"]:focus {
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="password"]:focus {
       outline: none;
       border-color: var(--primary-color);
       box-shadow: var(--focus-ring);
@@ -742,6 +745,7 @@
           Contact: snakamurako@yamagataps.jp
         </div>
         <button id="btnRefresh" class="btn-secondary">ページ更新</button>
+        <button id="btnLogoutToolbar" class="btn-secondary hidden">ログアウト</button>
         <button id="btnDiagnose" class="btn-secondary" title="GAS接続の診断">接続診断</button>
       </div>
     </div>
@@ -751,60 +755,85 @@
       <div id="diagnoseLog" style="max-height:200px;overflow-y:auto;white-space:pre-wrap;padding:.5rem;border:1px solid var(--border-color);border-radius:4px;"></div>
     </div>
 
-    <!-- Identity -->
+    <!-- Identity / Auth -->
     <div class="card" id="identPanel">
-      <h2>本人確認</h2>
-      <div class="stack">
-        <div class="small">サインイン中のアカウント：<b id="acctEmail" style="font-weight:600;color:var(--text-color);">—</b></div>
+      <h2>ログイン</h2>
+
+      <!-- ロック画面 -->
+      <div id="authLockScreen" class="stack hidden">
+        <p class="warn" style="font-size:1.1rem;font-weight:600;">連続で間違えたため、24時間アクセスできません</p>
+        <p class="small" id="authLockUntilText"></p>
+      </div>
+
+      <!-- ログイン画面（2回目以降） -->
+      <div id="authLoginScreen" class="stack">
+        <form id="loginForm" autocomplete="on" class="stack">
+          <div>
+            <label for="loginEmail">メールアドレス</label>
+            <input type="email" name="email" id="loginEmail" autocomplete="username" placeholder="example@school.jp" required>
+          </div>
+          <div>
+            <label for="loginPin">PIN（生年月日8桁）</label>
+            <input type="password" name="pin" id="loginPin" inputmode="numeric" maxlength="8" pattern="\d{8}"
+              autocomplete="current-password" placeholder="YYYYMMDD" required>
+          </div>
+          <button type="submit" id="btnAuthLogin" class="btn-primary">ログイン</button>
+        </form>
+        <div class="small">
+          初めての方は <button type="button" id="btnShowRegister" class="btn-secondary" style="width:auto;display:inline;padding:.2rem .6rem;">初回登録はこちら</button>
+        </div>
+        <span id="authLoginMsg" class="small warn"></span>
+      </div>
+
+      <!-- 初回登録 Step1 -->
+      <div id="authRegisterStep1" class="stack hidden">
+        <p class="small">初回登録：メールアドレスと初期パスワードを入力してください。</p>
+        <form id="registerStep1Form" autocomplete="on" class="stack">
+          <div>
+            <label for="regEmail">メールアドレス</label>
+            <input type="email" name="email" id="regEmail" autocomplete="username" placeholder="example@school.jp" required>
+          </div>
+          <div>
+            <label for="regInitialPw">初期パスワード</label>
+            <input type="password" name="initialPassword" id="regInitialPw" autocomplete="current-password" required>
+          </div>
+          <button type="submit" id="btnAuthVerifyInitial" class="btn-primary">次へ（PIN登録）</button>
+        </form>
+        <div class="small">
+          登録済みの方は <button type="button" id="btnShowLogin" class="btn-secondary" style="width:auto;display:inline;padding:.2rem .6rem;">ログインはこちら</button>
+        </div>
+        <span id="authRegisterStep1Msg" class="small warn"></span>
+      </div>
+
+      <!-- 初回登録 Step2 -->
+      <div id="authRegisterStep2" class="stack hidden">
+        <p class="small">生年月日8桁（YYYYMMDD）をPINとして登録してください。</p>
+        <form id="registerStep2Form" autocomplete="on" class="stack">
+          <div>
+            <label for="regPin">PIN（生年月日8桁）</label>
+            <input type="password" name="pin" id="regPin" inputmode="numeric" maxlength="8" pattern="\d{8}"
+              autocomplete="new-password" placeholder="YYYYMMDD" required>
+          </div>
+          <div>
+            <label for="regPinConfirm">PIN（確認）</label>
+            <input type="password" name="pinConfirm" id="regPinConfirm" inputmode="numeric" maxlength="8" pattern="\d{8}"
+              autocomplete="new-password" placeholder="YYYYMMDD" required>
+          </div>
+          <button type="submit" id="btnAuthRegisterPin" class="btn-primary">PINを登録してログイン</button>
+        </form>
+        <span id="authRegisterStep2Msg" class="small warn"></span>
+      </div>
+
+      <!-- ログイン済み表示 -->
+      <div id="authLoggedIn" class="stack hidden">
+        <div class="small">ログイン中：<b id="acctEmail" style="font-weight:600;color:var(--text-color);">—</b></div>
         <div id="wl-ok" class="stack hidden">
-          <div class="small">ホワイトリスト登録情報：</div>
+          <div class="small">登録情報：</div>
           <div><b id="wlName">—</b>（４桁ID：<b id="wlId4">—</b>）</div>
         </div>
-        <div id="wl-ng" class="warn hidden">ホワイトリストに該当がありません。ドメイン／公開設定をご確認ください。</div>
-      </div>
-
-      <div class="grid-2">
-        <div>
-          <button id="btnLogin" class="btn-primary">Googleでログイン</button>
-        </div>
-        <div>
-          <div class="small" id="loginStatus">未ログイン</div>
-          <button id="btnLogout" class="btn-secondary" style="margin-top:.35rem;">ログアウト</button>
-        </div>
-      </div>
-
-      <div id="confirm-buttons" class="grid-2">
-        <div>
-          <label>この情報はご本人ですか？</label>
-          <div class="grid-2" style="gap:.5rem;">
-            <button id="btnSelfYes" class="btn-success">本人である。</button>
-            <button id="btnSelfNo" class="btn-warning">本人ではない。</button>
-          </div>
-        </div>
-        <div>
-          <label>現在の本人情報</label>
-          <div class="pill"><span id="identBadge">未確定</span></div>
-          <div class="small" style="margin-top:.5rem;">※ 本人確認完了後、この情報で提出されます。</div>
-        </div>
-      </div>
-
-      <div id="proxy-block" class="grid-2 hidden">
-        <div>
-          <label for="proxyId">代理の４桁ID</label>
-          <input id="proxyId" type="text" inputmode="numeric" maxlength="4" placeholder="例：0123">
-        </div>
-        <div>
-          <label for="proxyName">代理の氏名</label>
-          <input id="proxyName" type="text" placeholder="例：Yamada Taro">
-        </div>
-        <div>
-          <button id="btnProxyDone" class="btn-primary">入力完了</button>
-        </div>
-        <div class="small" id="proxyHelp">※ ４桁IDと氏名（ローマ字）を入力して「入力完了」を押してください。</div>
-      </div>
-
-      <div>
-        <span id="identMsg" class="small" style="margin-left:.25rem;"></span>
+        <div id="wl-ng" class="small hidden">氏名・4桁IDはホワイトリストに未登録です（メールアドレスで利用できます）。</div>
+        <div class="pill"><span id="identBadge">未確定</span></div>
+        <button id="btnLogout" class="btn-secondary" style="width:auto;">ログアウト</button>
       </div>
     </div>
 
@@ -993,12 +1022,17 @@
     let currentUtterance = null; // ★ GC対策：グローバル変数で保持
 
     // GAS REST 呼び出し設定（APP_CONFIG で上書き可能、未設定時は以下を使用）
-    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbwTyTjQPPMpCSQVMYT59d_gzuYc1xEEGCzhTb4fmrYEghHuno9FKQn5s_ZvyfdgpTkV/exec';
-    let CLIENT_ID = (window.APP_CONFIG && window.APP_CONFIG.CLIENT_ID) || '505252303455-84r495bnnsgiefcrv24ro2qtohlgbk2h.apps.googleusercontent.com';
-    let AUTH_TOKEN = '';
+    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbxQLgW0YISSTtgtdEcWB10iCGzpVby7HGubup5X16TWdE5xOb6ZH47TgFgwB8xJEax6/exec';
+
+    const AUTH_LOCK_KEY = 'auth_locked_until';
+    const AUTH_FAIL_KEY = 'auth_fail_count';
+    const AUTH_SESSION_KEY = 'auth_session';
+    const MAX_AUTH_FAIL = 4;
+    const LOCK_MS = 24 * 60 * 60 * 1000;
+    let pendingRegisterEmail = '';
 
     function configNotSet() {
-      return !GAS_URL || GAS_URL.includes('YOUR_DEPLOYMENT_ID') || !CLIENT_ID || CLIENT_ID.includes('YOUR_CLIENT_ID');
+      return !GAS_URL || GAS_URL.includes('YOUR_DEPLOYMENT_ID');
     }
 
     // バグ特定用：診断ログ（?debug=1 で有効）
@@ -1017,10 +1051,10 @@
       const step = (n, msg) => { if (GAS_DEBUG) diagLog(`Step ${n}: ${msg}`); };
       step(0, `callGAS(${action}) 開始`);
 
-      if (configNotSet()) { step(1, '設定未完了'); throw new Error('設定未完了: GAS_URL / CLIENT_ID を設定してください'); }
+      if (configNotSet()) { step(1, '設定未完了'); throw new Error('設定未完了: GAS_URL を設定してください'); }
       step(1, '設定OK');
 
-      const data = { action, idToken: AUTH_TOKEN, ...payload };
+      const data = { action, ...payload };
       const body = 'd=' + encodeURIComponent(JSON.stringify(data));
       step(2, `fetch送信開始 (${GAS_URL.slice(0, 50)}...)`);
 
@@ -1062,7 +1096,15 @@
         throw new Error('GASの応答がJSONではありません: ' + (trim.slice(0, 80) || res.status));
       }
 
-      if (json.status === 'error') { step(7, `GAS側エラー: ${json.message}`); throw new Error(json.message || 'GAS error'); }
+      if (json.status === 'error') {
+        step(7, `GAS側エラー: ${json.message}`);
+        const err = new Error(json.message || 'GAS error');
+        if (json.locked) {
+          err.locked = true;
+          err.lockedUntil = json.lockedUntil || '';
+        }
+        throw err;
+      }
       step(7, '成功');
       if (json.status === 'success' && json.data !== undefined) return json.data;
       return json;
@@ -1082,11 +1124,11 @@
 
       try {
         diagLog('Step1: 設定チェック');
-        if (configNotSet()) throw new Error('GAS_URL/CLIENT_ID未設定');
+        if (configNotSet()) throw new Error('GAS_URL未設定');
         diagLog('Step1: OK', true);
 
         diagLog('Step2: リクエストbody構築');
-        const data = { action: 'list_books', idToken: AUTH_TOKEN, forceUpdate: false };
+        const data = { action: 'list_books', forceUpdate: false };
         const body = 'd=' + encodeURIComponent(JSON.stringify(data));
         diagLog('Step2: OK', true);
 
@@ -1158,7 +1200,7 @@
         case 'submitIdentityConfirmation':
           return callGAS('submit_identity', args[0] || {});
         case 'getAccessProfile':
-          return { email: '', found: false, name: '', id4: '', reasonIfNotFound: 'guest' };
+          return callGAS('get_user_profile', { email: args[0] || '' });
         default:
           throw new Error('Unknown action: ' + fnName);
       }
@@ -1188,9 +1230,6 @@
     google.script = google.script || {};
     Object.defineProperty(google.script, 'run', { get() { return createGoogleScriptRun(); } });
 
-    // 本人確認
-    let gIdentity = { status: 'guest', email: '', name: '', id4: '', selfCheck: '' };
-
     /* ========= DOM ========= */
     const el = id => document.getElementById(id);
     const bookSelect = el('bookSelect'), unitSelect = el('unitSelect'), problemSelect = el('problemSelect');
@@ -1205,11 +1244,312 @@
     const autoScrollToggle = el('autoScrollToggle');
     const identPanel = el('identPanel'), identStatus = el('identStatus');
     const acctEmail = el('acctEmail'), wlOk = el('wl-ok'), wlNg = el('wl-ng'), wlName = el('wlName'), wlId4 = el('wlId4');
-    const btnLogin = el('btnLogin'), loginStatus = el('loginStatus');
-    const identMsg = el('identMsg'), identBadge = el('identBadge');
-    const btnSelfYes = el('btnSelfYes'), btnSelfNo = el('btnSelfNo');
-    const proxyBlock = el('proxy-block'), proxyId = el('proxyId'), proxyName = el('proxyName'), btnProxyDone = el('btnProxyDone');
+    const identBadge = el('identBadge');
+    const authLockScreen = el('authLockScreen'), authLockUntilText = el('authLockUntilText');
+    const authLoginScreen = el('authLoginScreen'), authRegisterStep1 = el('authRegisterStep1'), authRegisterStep2 = el('authRegisterStep2');
+    const authLoggedIn = el('authLoggedIn');
+    const loginForm = el('loginForm'), registerStep1Form = el('registerStep1Form'), registerStep2Form = el('registerStep2Form');
+    const authLoginMsg = el('authLoginMsg'), authRegisterStep1Msg = el('authRegisterStep1Msg'), authRegisterStep2Msg = el('authRegisterStep2Msg');
     const roleLockNote = el('roleLockNote'), roleNormalNote = el('roleNormalNote');
+
+    /* ========= 認証（メール+PIN） ========= */
+    let gIdentity = { status: 'guest', email: '', name: '', id4: '', selfCheck: '' };
+
+    function getClientLockUntil() {
+      try {
+        const raw = localStorage.getItem(AUTH_LOCK_KEY);
+        if (!raw) return null;
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? null : d;
+      } catch (_) { return null; }
+    }
+
+    function isClientLocked() {
+      const until = getClientLockUntil();
+      if (!until) return false;
+      if (Date.now() >= until.getTime()) {
+        clearClientLock();
+        return false;
+      }
+      return true;
+    }
+
+    function clearClientLock() {
+      try {
+        localStorage.removeItem(AUTH_LOCK_KEY);
+        localStorage.removeItem(AUTH_FAIL_KEY);
+      } catch (_) {}
+    }
+
+    function applyClientLock(lockedUntilIso) {
+      const until = lockedUntilIso ? new Date(lockedUntilIso) : new Date(Date.now() + LOCK_MS);
+      try {
+        localStorage.setItem(AUTH_LOCK_KEY, until.toISOString());
+        localStorage.setItem(AUTH_FAIL_KEY, '0');
+      } catch (_) {}
+    }
+
+    function recordClientAuthFailure(serverLockedUntil) {
+      if (serverLockedUntil) {
+        applyClientLock(serverLockedUntil);
+        return;
+      }
+      try {
+        let fails = parseInt(localStorage.getItem(AUTH_FAIL_KEY) || '0', 10) + 1;
+        if (fails >= MAX_AUTH_FAIL) {
+          applyClientLock(null);
+        } else {
+          localStorage.setItem(AUTH_FAIL_KEY, String(fails));
+        }
+      } catch (_) {}
+    }
+
+    function clearClientAuthFailures() {
+      try {
+        localStorage.removeItem(AUTH_FAIL_KEY);
+        localStorage.removeItem(AUTH_LOCK_KEY);
+      } catch (_) {}
+    }
+
+    function saveAuthSession(email) {
+      try {
+        localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ email, authenticatedAt: new Date().toISOString() }));
+      } catch (_) {}
+    }
+
+    function loadAuthSession() {
+      try {
+        const raw = localStorage.getItem(AUTH_SESSION_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && parsed.email ? parsed : null;
+      } catch (_) { return null; }
+    }
+
+    function clearAuthSession() {
+      try { localStorage.removeItem(AUTH_SESSION_KEY); } catch (_) {}
+    }
+
+    function hideAllAuthScreens() {
+      authLockScreen.classList.add('hidden');
+      authLoginScreen.classList.add('hidden');
+      authRegisterStep1.classList.add('hidden');
+      authRegisterStep2.classList.add('hidden');
+      authLoggedIn.classList.add('hidden');
+    }
+
+    function showLockScreen() {
+      hideAllAuthScreens();
+      authLockScreen.classList.remove('hidden');
+      const until = getClientLockUntil();
+      if (authLockUntilText && until) {
+        authLockUntilText.textContent = 'ロック解除予定: ' + until.toLocaleString('ja-JP');
+      }
+      document.querySelectorAll('.card:not(#identPanel), #status, #afterSubmitLink').forEach(c => c.classList.add('hidden'));
+      identPanel.classList.remove('hidden');
+    }
+
+    function showLoginScreen() {
+      hideAllAuthScreens();
+      authLoginScreen.classList.remove('hidden');
+      identPanel.classList.remove('hidden');
+      document.querySelectorAll('.card:not(#identPanel), #status, #afterSubmitLink').forEach(c => c.classList.add('hidden'));
+    }
+
+    function showRegisterStep1() {
+      hideAllAuthScreens();
+      authRegisterStep1.classList.remove('hidden');
+      pendingRegisterEmail = '';
+      identPanel.classList.remove('hidden');
+    }
+
+    function showRegisterStep2(email) {
+      hideAllAuthScreens();
+      pendingRegisterEmail = email || pendingRegisterEmail;
+      authRegisterStep2.classList.remove('hidden');
+      identPanel.classList.remove('hidden');
+    }
+
+    function showLoggedInUI() {
+      hideAllAuthScreens();
+      identPanel.classList.add('hidden');
+      const btnLogoutToolbar = el('btnLogoutToolbar');
+      if (btnLogoutToolbar) btnLogoutToolbar.classList.remove('hidden');
+      document.querySelectorAll('.card.hidden, #status.hidden').forEach(c => {
+        if (c.id !== 'identPanel' && c.id !== 'diagnosePanel') c.classList.remove('hidden');
+      });
+      const statusEl = el('status');
+      if (statusEl) statusEl.classList.remove('hidden');
+    }
+
+    function handleAuthError(err, msgEl) {
+      if (err && err.locked) {
+        applyClientLock(err.lockedUntil);
+        showLockScreen();
+        return;
+      }
+      recordClientAuthFailure(null);
+      if (msgEl) msgEl.textContent = err.message || String(err);
+    }
+
+    async function completeAuthSuccess(email) {
+      clearClientAuthFailures();
+      saveAuthSession(email);
+      gIdentity = { status: 'verified-self', email, name: '', id4: '', selfCheck: 'はい' };
+      acctEmail.textContent = email;
+
+      try {
+        const profile = await callGAS('get_user_profile', { email });
+        if (profile && profile.found) {
+          gIdentity.name = profile.name || '';
+          gIdentity.id4 = profile.id4 || '';
+          wlName.textContent = gIdentity.name || '—';
+          wlId4.textContent = gIdentity.id4 || '—';
+          wlOk.classList.remove('hidden');
+          wlNg.classList.add('hidden');
+        } else {
+          gIdentity.name = email.split('@')[0];
+          gIdentity.id4 = '';
+          wlOk.classList.add('hidden');
+          wlNg.classList.remove('hidden');
+        }
+      } catch (_) {
+        gIdentity.name = email.split('@')[0];
+        wlOk.classList.add('hidden');
+        wlNg.classList.remove('hidden');
+      }
+
+      refreshIdentityBadges();
+      showLoggedInUI();
+      updateUI();
+      updatePhaseButton();
+
+      if (!configNotSet() && books.length === 0) {
+        try {
+          setBusy(true);
+          const booksRes = await callGAS('list_books', { forceUpdate: false });
+          updateBooks(booksRes || []);
+          cefr.value = 'A2';
+          statusRun('');
+        } catch (err) {
+          statusSubmit(err.message || String(err), true);
+        } finally {
+          setBusy(false);
+          updateUI();
+        }
+      }
+    }
+
+    async function onAuthLoginSubmit(e) {
+      e.preventDefault();
+      authLoginMsg.textContent = '';
+      const email = (el('loginEmail').value || '').trim();
+      const pin = (el('loginPin').value || '').trim();
+      if (!/^\d{8}$/.test(pin)) { authLoginMsg.textContent = 'PINは8桁の数字で入力してください'; return; }
+      setBusy(true);
+      try {
+        await callGAS('auth_login', { email, pin });
+        await completeAuthSuccess(email.toLowerCase());
+      } catch (err) {
+        handleAuthError(err, authLoginMsg);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function onAuthVerifyInitialSubmit(e) {
+      e.preventDefault();
+      authRegisterStep1Msg.textContent = '';
+      const email = (el('regEmail').value || '').trim();
+      const initialPassword = (el('regInitialPw').value || '').trim();
+      setBusy(true);
+      try {
+        const res = await callGAS('auth_verify_initial', { email, initialPassword });
+        pendingRegisterEmail = (res && res.email) || email.toLowerCase();
+        showRegisterStep2(pendingRegisterEmail);
+      } catch (err) {
+        handleAuthError(err, authRegisterStep1Msg);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function onAuthRegisterPinSubmit(e) {
+      e.preventDefault();
+      authRegisterStep2Msg.textContent = '';
+      const pin = (el('regPin').value || '').trim();
+      const pinConfirm = (el('regPinConfirm').value || '').trim();
+      if (!/^\d{8}$/.test(pin)) { authRegisterStep2Msg.textContent = 'PINは8桁の数字で入力してください'; return; }
+      if (pin !== pinConfirm) { authRegisterStep2Msg.textContent = 'PIN（確認）が一致しません'; return; }
+      if (!pendingRegisterEmail) { authRegisterStep2Msg.textContent = 'セッションが切れました。初回登録からやり直してください'; showRegisterStep1(); return; }
+      setBusy(true);
+      try {
+        await callGAS('auth_register_pin', { email: pendingRegisterEmail, pin });
+        await completeAuthSuccess(pendingRegisterEmail);
+        pendingRegisterEmail = '';
+      } catch (err) {
+        handleAuthError(err, authRegisterStep2Msg);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    function logout() {
+      clearAuthSession();
+      gIdentity = { status: 'guest', email: '', name: '', id4: '', selfCheck: '' };
+      acctEmail.textContent = '—';
+      wlName.textContent = '—';
+      wlId4.textContent = '—';
+      wlOk.classList.add('hidden');
+      wlNg.classList.add('hidden');
+      refreshIdentityBadges();
+      pendingRegisterEmail = '';
+      const btnLogoutToolbar = el('btnLogoutToolbar');
+      if (btnLogoutToolbar) btnLogoutToolbar.classList.add('hidden');
+      if (isClientLocked()) {
+        showLockScreen();
+      } else {
+        showLoginScreen();
+        document.querySelectorAll('.card:not(#identPanel), #status, #afterSubmitLink').forEach(c => c.classList.add('hidden'));
+      }
+      updateUI();
+      updatePhaseButton();
+    }
+
+    function initAuthUI() {
+      if (isClientLocked()) {
+        showLockScreen();
+        return;
+      }
+      const session = loadAuthSession();
+      if (!session || !session.email) {
+        showLoginScreen();
+      }
+    }
+
+    async function restoreSessionIfAny() {
+      const session = loadAuthSession();
+      if (!session || !session.email || isLoggedIn()) return;
+      await completeAuthSuccess(session.email);
+    }
+
+    /* ========= 本人確認（認証連携） ========= */
+    function isLoggedIn() { return gIdentity.status === 'verified-self' || gIdentity.status === 'verified-proxy'; }
+    function refreshIdentityBadges() {
+      if (gIdentity.status === 'verified-self') {
+        const label = gIdentity.name
+          ? `本人：${gIdentity.name}（${gIdentity.id4 || '—'}）`
+          : `ログイン：${gIdentity.email}`;
+        identBadge.textContent = label;
+        identStatus.textContent = label;
+      } else if (gIdentity.status === 'verified-proxy') {
+        identBadge.textContent = `代理：${gIdentity.name}（${gIdentity.id4}）`;
+        identStatus.textContent = `代理：${gIdentity.name}（${gIdentity.id4}）`;
+      } else {
+        identBadge.textContent = '未ログイン';
+        identStatus.textContent = '未ログイン';
+      }
+    }
 
     /* ==== 認識UIの参照（実測ビジュアライザー） ==== */
     const recStatusBox = document.getElementById('recStatusBox');
@@ -1243,122 +1583,6 @@
       updatePhaseButton();
     }
     function setBusy(flag) { busy = !!flag; statusRun(busy ? '処理中…' : ''); updateUI(); }
-
-    /* ========= 本人確認 ========= */
-    function isLoggedIn() { return gIdentity.status === 'verified-self' || gIdentity.status === 'verified-proxy'; }
-    function setLoginStatusText(s) { if (loginStatus) loginStatus.textContent = s; }
-    function fillIdentityFromUser(user) {
-      if (!user) return;
-      const name = user.name || user['氏名'] || '';
-      const id4 = user.id4 || user['４桁ID'] || user['id'] || '';
-      const email = user.account || user['アカウント'] || user.email || '';
-      gIdentity = { status: 'verified-self', email, name, id4, selfCheck: 'はい' };
-      acctEmail.textContent = email || '—';
-      wlName.textContent = name || '—';
-      wlId4.textContent = id4 || '—';
-      wlOk.classList.remove('hidden');
-      wlNg.classList.add('hidden');
-      refreshIdentityBadges();
-      updatePhaseButton();
-    }
-    function saveIdentityLocally() {
-      try { localStorage.setItem('userInfo', JSON.stringify({ gIdentity, AUTH_TOKEN })); } catch (e) { console.warn('localStorage save failed', e); }
-    }
-    function loadIdentityLocally() {
-      try {
-        const raw = localStorage.getItem('userInfo');
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.gIdentity) {
-          gIdentity = parsed.gIdentity;
-          AUTH_TOKEN = parsed.AUTH_TOKEN || '';
-          acctEmail.textContent = gIdentity.email || '—';
-          wlName.textContent = gIdentity.name || '—';
-          wlId4.textContent = gIdentity.id4 || '—';
-          if (isLoggedIn()) { wlOk.classList.remove('hidden'); wlNg.classList.add('hidden'); }
-          refreshIdentityBadges();
-          setLoginStatusText('前回ログイン情報を復元');
-        }
-      } catch (e) { console.warn('localStorage load failed', e); }
-    }
-    function refreshIdentityBadges() {
-      if (gIdentity.status === 'verified-self') {
-        identBadge.textContent = `本人：${gIdentity.name}（${gIdentity.id4}）`;
-        identStatus.textContent = `本人：${gIdentity.name}（${gIdentity.id4}）`;
-      } else if (gIdentity.status === 'verified-proxy') {
-        identBadge.textContent = `代理：${gIdentity.name}（${gIdentity.id4}）`;
-        identStatus.textContent = `代理：${gIdentity.name}（${gIdentity.id4}）`;
-      } else { identBadge.textContent = '未ログイン'; identStatus.textContent = '未ログイン'; }
-    }
-    async function submitIdentityToServer() {
-      const payload = { email: gIdentity.email || '', resolvedName: gIdentity.name || '', resolvedId4: gIdentity.id4 || '', selfCheck: gIdentity.selfCheck || '', proxyId: (gIdentity.status === 'verified-proxy') ? gIdentity.id4 : '', proxyName: (gIdentity.status === 'verified-proxy') ? gIdentity.name : '', userAgent: navigator.userAgent || '', ts: new Date().toISOString() };
-      setBusy(true);
-      identMsg.innerHTML = '<span style="color:var(--primary-color);font-weight:600;">⌛ 確認中...</span>';
-      try {
-        await callGAS('submit_identity', payload);
-        identMsg.textContent = '本人確認が完了しました。';
-        refreshIdentityBadges();
-        identPanel.classList.add('hidden');
-      } catch (err) {
-        identMsg.textContent = 'エラー：' + err.message;
-        gIdentity.status = 'guest';
-        wlOk.classList.add('hidden');
-        wlNg.classList.remove('hidden');
-        refreshIdentityBadges();
-      } finally {
-        setBusy(false);
-        updateUI();
-      }
-    }
-    async function onSelfYes() { identMsg.textContent = ''; if (!gIdentity.email || !gIdentity.name || !gIdentity.id4) { identMsg.textContent = 'ホワイトリスト情報が読み込めていません。'; return; } gIdentity.selfCheck = 'はい'; gIdentity.status = 'verified-self'; await submitIdentityToServer(); }
-    function onSelfNo() { identMsg.textContent = ''; gIdentity.selfCheck = 'いいえ'; proxyBlock.classList.remove('hidden'); }
-    async function onProxyDone() { identMsg.textContent = ''; const pId = (proxyId.value || '').trim(); const pName = (proxyName.value || '').trim(); if (!/^\d{4}$/.test(pId)) { identMsg.textContent = '代理の4桁IDを正しく入力してください。'; return; } if (!pName) { identMsg.textContent = '代理の氏名を正しく入力してください。'; return; } gIdentity.status = 'verified-proxy'; gIdentity.name = pName; gIdentity.id4 = pId; await submitIdentityToServer(); }
-
-    async function loginWithIdToken(idToken) {
-      setLoginStatusText('認証中…');
-      try {
-        const res = await callGAS('login', { idToken });
-        const user = res && res.user ? res.user : res;
-        fillIdentityFromUser(user);
-        AUTH_TOKEN = idToken;
-        saveIdentityLocally();
-        setLoginStatusText('ログイン済み');
-      } catch (err) {
-        console.error(err);
-        setLoginStatusText('ログイン失敗: ' + err.message);
-      }
-    }
-
-    function logout() {
-      AUTH_TOKEN = '';
-      gIdentity = { status: 'guest', email: '', name: '', id4: '', selfCheck: '' };
-      acctEmail.textContent = '—';
-      wlName.textContent = '—';
-      wlId4.textContent = '—';
-      wlOk.classList.add('hidden');
-      wlNg.classList.add('hidden');
-      refreshIdentityBadges();
-      try { localStorage.removeItem('userInfo'); } catch (_) {}
-      updateUI();
-      setLoginStatusText('未ログイン');
-    }
-
-    function onGoogleSignIn(response) {
-      if (response && response.credential) {
-        loginWithIdToken(response.credential);
-      } else {
-        setLoginStatusText('認証情報が取得できませんでした');
-      }
-    }
-
-    function initGSI() {
-      if (!window.google || !google.accounts || !google.accounts.id) {
-        setLoginStatusText('Google Sign-In未ロード');
-        return;
-      }
-      google.accounts.id.initialize({ client_id: CLIENT_ID, callback: onGoogleSignIn });
-      if (btnLogin) google.accounts.id.renderButton(btnLogin, { theme: 'outline', size: 'large' });
-    }
 
     /* ========= 会話描画（AI＝初期非表示） ========= */
     function buildAssistantBubble(text) {
@@ -1545,7 +1769,7 @@
     function updatePhaseButton() { btnPhase.disabled = busy || !isLoggedIn() || configNotSet(); btnPhase.classList.remove('btn-danger', 'btn-warning', 'btn-success', 'btn-primary'); if (phase === 'start') { btnPhase.textContent = '英会話開始（＋初回の音声認識開始）'; btnPhase.classList.add('btn-danger'); } else if (phase === 'feedback') { btnPhase.textContent = '英会話を終了＆フィードバック'; btnPhase.classList.add('btn-warning'); } else if (phase === 'submit') { btnPhase.textContent = '提出（忘れずに）'; btnPhase.classList.add('btn-success'); } else { btnPhase.textContent = '提出完了'; btnPhase.classList.add('btn-primary'); btnPhase.disabled = true; } }
     function onPhaseClick() { if (phase === 'start') return startConversationFlow(); if (phase === 'feedback') return doFeedbackFlow(); if (phase === 'submit') return onSubmit(); }
     function startConversationFlow() {
-      if (configNotSet()) { statusSubmit('GAS_URL/CLIENT_ID を設定してください。', true); return; }
+      if (configNotSet()) { statusSubmit('GAS_URL を設定してください。', true); return; }
       if (!isLoggedIn()) { statusSubmit('先にログインしてください。', true); return; }
       if (!currentBook || !currentUnit || !currentRow) { statusSubmit('ブック・単元・英会話を選んでください。', true); return; } if (!userRoleSel.value) { statusSubmit('あなたの役割を選んでください。', true); return; }
       const effectiveUserRole = roleLockedToA ? 'B' : userRoleSel.value; // ★
@@ -1680,14 +1904,57 @@
 
     /* ========= 初期化 ========= */
     async function initApp() {
-      setBusy(true);
-      if (configNotSet()) {
-        setLoginStatusText('設定未完了: GAS_URL/CLIENT_ID を確認');
-        statusSubmit('設定未完了: GAS_URL/CLIENT_ID を設定してください。', true);
+      initAuthUI();
+
+      // イベント（ロック中でも登録しておく）
+      bookSelect.addEventListener('change', onBookChange);
+      unitSelect.addEventListener('change', onUnitChange);
+      problemSelect.addEventListener('change', onProblemChange);
+      userRoleSel.addEventListener('change', () => { onRoleChange(); });
+      btnPhase.addEventListener('click', onPhaseClick);
+      btnRestart.addEventListener('click', restartSameSelection);
+      btnSendPeriod.addEventListener('click', () => onSend('.'));
+      btnSendQuestion.addEventListener('click', () => onSend('?'));
+      userInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend('.'); } });
+      userInput.addEventListener('input', updateUI);
+      btnRecToggle.addEventListener('click', toggleRecognition);
+      btnRefresh.addEventListener('click', refreshThemesOnly);
+      const btnDiagnose = el('btnDiagnose');
+      if (btnDiagnose) btnDiagnose.addEventListener('click', runGASDiagnostic);
+      if (GAS_DEBUG) { const p = el('diagnosePanel'); if (p) p.classList.remove('hidden'); }
+      if (loginForm) loginForm.addEventListener('submit', onAuthLoginSubmit);
+      if (registerStep1Form) registerStep1Form.addEventListener('submit', onAuthVerifyInitialSubmit);
+      if (registerStep2Form) registerStep2Form.addEventListener('submit', onAuthRegisterPinSubmit);
+      const btnShowRegister = el('btnShowRegister');
+      if (btnShowRegister) btnShowRegister.addEventListener('click', showRegisterStep1);
+      const btnShowLogin = el('btnShowLogin');
+      if (btnShowLogin) btnShowLogin.addEventListener('click', showLoginScreen);
+      const btnLogout = el('btnLogout');
+      if (btnLogout) btnLogout.addEventListener('click', logout);
+      const btnLogoutToolbar = el('btnLogoutToolbar');
+      if (btnLogoutToolbar) btnLogoutToolbar.addEventListener('click', logout);
+      initTTS(); initRecognition();
+
+      if (isClientLocked()) {
+        refreshIdentityBadges();
+        updateUI();
+        return;
       }
-      loadIdentityLocally();
-      initGSI();
+
+      if (configNotSet()) {
+        statusSubmit('設定未完了: GAS_URL を設定してください。', true);
+      }
+
+      await restoreSessionIfAny();
       refreshIdentityBadges();
+
+      if (!isLoggedIn()) {
+        updateUI();
+        updatePhaseButton();
+        return;
+      }
+
+      setBusy(true);
       try {
         if (!configNotSet()) {
           const booksRes = await callGAS('list_books', { forceUpdate: false });
@@ -1708,30 +1975,6 @@
         updateUI();
         updatePhaseButton();
       }
-
-      // イベント
-      bookSelect.addEventListener('change', onBookChange);
-      unitSelect.addEventListener('change', onUnitChange);
-      problemSelect.addEventListener('change', onProblemChange);
-      userRoleSel.addEventListener('change', () => { onRoleChange(); });
-      btnPhase.addEventListener('click', onPhaseClick);
-      btnRestart.addEventListener('click', restartSameSelection);
-      btnSendPeriod.addEventListener('click', () => onSend('.')); // (.)
-      btnSendQuestion.addEventListener('click', () => onSend('?')); // (?)
-      userInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend('.'); } }); // Enterは (.) 扱いとする
-      userInput.addEventListener('input', updateUI);
-      btnRecToggle.addEventListener('click', toggleRecognition);
-      btnRefresh.addEventListener('click', refreshThemesOnly);
-      const btnDiagnose = el('btnDiagnose');
-      if (btnDiagnose) btnDiagnose.addEventListener('click', runGASDiagnostic);
-      if (GAS_DEBUG) { const p = el('diagnosePanel'); if (p) p.classList.remove('hidden'); }
-      if (btnLogin) btnLogin.addEventListener('click', () => { if (window.google && google.accounts && google.accounts.id) { google.accounts.id.prompt(); } else { setLoginStatusText('Google Sign-In未ロード'); } });
-      const btnLogout = el('btnLogout');
-      if (btnLogout) btnLogout.addEventListener('click', logout);
-      btnSelfYes.addEventListener('click', onSelfYes);
-      btnSelfNo.addEventListener('click', onSelfNo);
-      btnProxyDone.addEventListener('click', onProxyDone);
-      initTTS(); initRecognition(); updateUI(); updatePhaseButton();
     }
 
     window.addEventListener('load', initApp);
