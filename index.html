@@ -1022,7 +1022,7 @@
     let currentUtterance = null; // ★ GC対策：グローバル変数で保持
 
     // GAS REST 呼び出し設定（APP_CONFIG で上書き可能、未設定時は以下を使用）
-    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbxQLgW0YISSTtgtdEcWB10iCGzpVby7HGubup5X16TWdE5xOb6ZH47TgFgwB8xJEax6/exec';
+    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbyNSBorZk3670NMlC5PyxfaaF4v5VMOk27yqjrdWPVWkC214d-LzX0rmFdClsrsWT4o/exec';
 
     const AUTH_LOCK_KEY = 'auth_locked_until';
     const AUTH_FAIL_KEY = 'auth_fail_count';
@@ -1170,7 +1170,7 @@
           return;
         }
         diagLog('Step7: 全成功', true);
-        diagLog(`取得件数: ${Array.isArray(json.data) ? json.data.length : '(構造確認)'}件`);
+        diagLog(`取得件数: ${Array.isArray(json.data) ? json.data.length : (json.data && json.data.books ? json.data.books.length : '(構造確認)')}件`);
       } catch (e) {
         diagLog(`例外: ${e.message}`, false);
         if (e.stack) diagLog(e.stack);
@@ -1727,7 +1727,25 @@
     }
 
     /* ========= 書類（Books/Units/Problems） ========= */
-    function updateBooks(data) { books = data || []; bookSelect.innerHTML = ''; books.forEach(b => { const o = document.createElement('option'); o.value = b.id; o.textContent = b.name; o.dataset.name = b.name; bookSelect.appendChild(o); }); if (books.length) { bookSelect.selectedIndex = 0; currentBook = books[0]; onBookChange(); } }
+    function updateBooks(data) {
+      const list = Array.isArray(data) ? data : (data && data.books ? data.books : []);
+      const defaultBookId = (data && data.defaultBookId) || '';
+      books = list || [];
+      bookSelect.innerHTML = '';
+      books.forEach(b => {
+        const o = document.createElement('option');
+        o.value = b.id;
+        o.textContent = b.name;
+        o.dataset.name = b.name;
+        bookSelect.appendChild(o);
+      });
+      if (books.length) {
+        const idx = defaultBookId ? books.findIndex(b => b.id === defaultBookId) : 0;
+        bookSelect.selectedIndex = idx >= 0 ? idx : 0;
+        currentBook = books[bookSelect.selectedIndex];
+        onBookChange();
+      }
+    }
     function onBookChange() { currentBook = books.find(b => b.id === bookSelect.value) || null; unitSelect.innerHTML = ''; problemSelect.innerHTML = ''; resetProblemDetails(); if (!currentBook) return; setBusy(true); google.script.run.withSuccessHandler(updateUnits).withFailureHandler(err => { setBusy(false); statusSubmit(err.message, true); }).listThemeUnitsCached(currentBook.id, forceFetch); }
     function updateUnits(data) { setBusy(false); units = data || []; unitSelect.innerHTML = ''; units.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; unitSelect.appendChild(o); }); if (units.length) { unitSelect.selectedIndex = 0; currentUnit = units[0]; onUnitChange(); } }
     function onUnitChange() { currentUnit = unitSelect.value || null; problemSelect.innerHTML = ''; resetProblemDetails(); if (!currentBook || !currentUnit) return; setBusy(true); google.script.run.withSuccessHandler(updateProblems).withFailureHandler(err => { setBusy(false); statusSubmit(err.message, true); }).listThemeProblemsCached(currentBook.id, currentUnit, forceFetch); }
