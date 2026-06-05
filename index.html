@@ -763,6 +763,12 @@
       <div id="authLockScreen" class="stack hidden">
         <p class="warn" style="font-size:1.1rem;font-weight:600;">連続で間違えたため、24時間アクセスできません</p>
         <p class="small" id="authLockUntilText"></p>
+        <div class="stack" style="margin-top:.75rem;padding:.75rem;border:1px solid var(--border-color);border-radius:var(--border-radius);">
+          <p class="small">管理者によりロック解除された場合は、メールアドレスを入力して状態を確認してください。</p>
+          <input type="email" id="authLockRecheckEmail" autocomplete="username" placeholder="example@school.jp">
+          <button type="button" id="btnRecheckLock" class="btn-secondary">ロック状態を確認</button>
+          <span id="authLockRecheckMsg" class="small"></span>
+        </div>
       </div>
 
       <!-- ログイン画面（2回目以降） -->
@@ -1026,6 +1032,7 @@
 
     const AUTH_LOCK_KEY = 'auth_locked_until';
     const AUTH_FAIL_KEY = 'auth_fail_count';
+    const AUTH_LOCK_EMAIL_KEY = 'auth_lock_email';
     const AUTH_SESSION_KEY = 'auth_session';
     const MAX_AUTH_FAIL = 4;
     const LOCK_MS = 24 * 60 * 60 * 1000;
@@ -1278,26 +1285,33 @@
       try {
         localStorage.removeItem(AUTH_LOCK_KEY);
         localStorage.removeItem(AUTH_FAIL_KEY);
+        localStorage.removeItem(AUTH_LOCK_EMAIL_KEY);
       } catch (_) {}
     }
 
-    function applyClientLock(lockedUntilIso) {
+    function applyClientLock(lockedUntilIso, email) {
       const until = lockedUntilIso ? new Date(lockedUntilIso) : new Date(Date.now() + LOCK_MS);
       try {
         localStorage.setItem(AUTH_LOCK_KEY, until.toISOString());
         localStorage.setItem(AUTH_FAIL_KEY, '0');
+        if (email) localStorage.setItem(AUTH_LOCK_EMAIL_KEY, normalizeEmailLocal_(email));
       } catch (_) {}
     }
 
-    function recordClientAuthFailure(serverLockedUntil) {
+    function normalizeEmailLocal_(email) {
+      return String(email || '').trim().toLowerCase();
+    }
+
+    function recordClientAuthFailure(serverLockedUntil, email) {
       if (serverLockedUntil) {
-        applyClientLock(serverLockedUntil);
+        applyClientLock(serverLockedUntil, email);
         return;
       }
       try {
+        if (email) localStorage.setItem(AUTH_LOCK_EMAIL_KEY, normalizeEmailLocal_(email));
         let fails = parseInt(localStorage.getItem(AUTH_FAIL_KEY) || '0', 10) + 1;
         if (fails >= MAX_AUTH_FAIL) {
-          applyClientLock(null);
+          applyClientLock(null, email);
         } else {
           localStorage.setItem(AUTH_FAIL_KEY, String(fails));
         }
@@ -1382,14 +1396,50 @@
       if (statusEl) statusEl.classList.remove('hidden');
     }
 
-    function handleAuthError(err, msgEl) {
+    function handleAuthError(err, msgEl, email) {
       if (err && err.locked) {
-        applyClientLock(err.lockedUntil);
+        applyClientLock(err.lockedUntil, email);
         showLockScreen();
         return;
       }
-      recordClientAuthFailure(null);
+      recordClientAuthFailure(null, email);
       if (msgEl) msgEl.textContent = err.message || String(err);
+    }
+
+    async function syncClientLockWithServer(email) {
+      const targetEmail = normalizeEmailLocal_(email || localStorage.getItem(AUTH_LOCK_EMAIL_KEY) || '');
+      if (!targetEmail || configNotSet()) return isClientLocked();
+      try {
+        const status = await callGAS('auth_check_lock', { email: targetEmail });
+        if (!status || !status.locked) {
+          clearClientLock();
+          return false;
+        }
+        if (status.lockedUntil) applyClientLock(status.lockedUntil, targetEmail);
+        return true;
+      } catch (_) {
+        return isClientLocked();
+      }
+    }
+
+    async function onRecheckLock() {
+      const msgEl = el('authLockRecheckMsg');
+      const email = (el('authLockRecheckEmail').value || '').trim();
+      if (!email) {
+        if (msgEl) msgEl.textContent = 'メールアドレスを入力してください';
+        return;
+      }
+      if (msgEl) msgEl.textContent = '確認中…';
+      const stillLocked = await syncClientLockWithServer(email);
+      if (stillLocked) {
+        if (msgEl) msgEl.textContent = 'サーバー側ではまだロック中です。管理者にご確認ください。';
+        showLockScreen();
+        return;
+      }
+      if (msgEl) msgEl.textContent = 'ロックが解除されました。ログインできます。';
+      showLoginScreen();
+      const loginEmail = el('loginEmail');
+      if (loginEmail) loginEmail.value = email;
     }
 
     async function completeAuthSuccess(email) {
@@ -1451,7 +1501,7 @@
         await callGAS('auth_login', { email, pin });
         await completeAuthSuccess(email.toLowerCase());
       } catch (err) {
-        handleAuthError(err, authLoginMsg);
+        handleAuthError(err, authLoginMsg, email);
       } finally {
         setBusy(false);
       }
@@ -1468,7 +1518,7 @@
         pendingRegisterEmail = (res && res.email) || email.toLowerCase();
         showRegisterStep2(pendingRegisterEmail);
       } catch (err) {
-        handleAuthError(err, authRegisterStep1Msg);
+        handleAuthError(err, authRegisterStep1Msg, email);
       } finally {
         setBusy(false);
       }
@@ -1488,7 +1538,7 @@
         await completeAuthSuccess(pendingRegisterEmail);
         pendingRegisterEmail = '';
       } catch (err) {
-        handleAuthError(err, authRegisterStep2Msg);
+        handleAuthError(err, authRegisterStep2Msg, pendingRegisterEmail);
       } finally {
         setBusy(false);
       }
@@ -1516,10 +1566,13 @@
       updatePhaseButton();
     }
 
-    function initAuthUI() {
+    async function initAuthUI() {
       if (isClientLocked()) {
-        showLockScreen();
-        return;
+        const stillLocked = await syncClientLockWithServer();
+        if (stillLocked) {
+          showLockScreen();
+          return;
+        }
       }
       const session = loadAuthSession();
       if (!session || !session.email) {
@@ -1922,7 +1975,7 @@
 
     /* ========= 初期化 ========= */
     async function initApp() {
-      initAuthUI();
+      await initAuthUI();
 
       // イベント（ロック中でも登録しておく）
       bookSelect.addEventListener('change', onBookChange);
@@ -1951,6 +2004,8 @@
       if (btnLogout) btnLogout.addEventListener('click', logout);
       const btnLogoutToolbar = el('btnLogoutToolbar');
       if (btnLogoutToolbar) btnLogoutToolbar.addEventListener('click', logout);
+      const btnRecheckLock = el('btnRecheckLock');
+      if (btnRecheckLock) btnRecheckLock.addEventListener('click', onRecheckLock);
       initTTS(); initRecognition();
 
       if (isClientLocked()) {
