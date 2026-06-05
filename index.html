@@ -299,6 +299,39 @@
       gap: var(--spacing-2);
     }
 
+    .auth-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: .6rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: var(--font-size-base);
+      color: var(--text-color-muted);
+    }
+
+    .auth-tab.active {
+      border-bottom: 2px solid var(--primary-color);
+      font-weight: 600;
+      color: var(--text-color);
+      margin-bottom: -1px;
+    }
+
+    .auth-tab-panel {
+      display: none;
+    }
+
+    .auth-tab-panel.active {
+      display: grid;
+      gap: var(--spacing-4);
+    }
+
     .pill {
       display: inline-block;
       padding: var(--spacing-1) var(--spacing-3);
@@ -440,6 +473,29 @@
     .msg.assistant .toggleBtn:hover,
     .msg.assistant .playBtn:hover {
       background: #e9f5ff;
+    }
+
+    .msg.assistant.ai-thinking {
+      opacity: 0.85;
+      font-style: italic;
+      color: var(--text-color-muted);
+    }
+
+    .msg.assistant.ai-thinking .thinking-dots .dot {
+      animation: thinkingDot 1.2s infinite;
+    }
+
+    .msg.assistant.ai-thinking .thinking-dots .dot:nth-of-type(2) {
+      animation-delay: 0.2s;
+    }
+
+    .msg.assistant.ai-thinking .thinking-dots .dot:nth-of-type(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes thinkingDot {
+      0%, 60%, 100% { opacity: 0.2; }
+      30% { opacity: 1; }
     }
 
     .msg.assistant .playBtn.is-speaking,
@@ -771,63 +827,56 @@
         </div>
       </div>
 
-      <!-- ログイン画面（2回目以降） -->
-      <div id="authLoginScreen" class="stack">
-        <form id="loginForm" autocomplete="on" class="stack">
-          <div>
-            <label for="loginEmail">メールアドレス</label>
-            <input type="email" name="email" id="loginEmail" autocomplete="username" placeholder="example@school.jp" required>
-          </div>
-          <div>
-            <label for="loginPin">PIN（生年月日8桁）</label>
-            <input type="password" name="pin" id="loginPin" inputmode="numeric" maxlength="8" pattern="\d{8}"
-              autocomplete="current-password" placeholder="YYYYMMDD" required>
-          </div>
-          <button type="submit" id="btnAuthLogin" class="btn-primary">ログイン</button>
-        </form>
-        <div class="small">
-          初めての方は <button type="button" id="btnShowRegister" class="btn-secondary" style="width:auto;display:inline;padding:.2rem .6rem;">初回登録はこちら</button>
+      <!-- ログイン / 初回ログイン タブ -->
+      <div id="authTabsArea" class="stack">
+        <div class="auth-tabs" role="tablist">
+          <button type="button" class="auth-tab active" id="authTabBtnLogin" role="tab" aria-selected="true" aria-controls="authTabLogin">ログイン</button>
+          <button type="button" class="auth-tab" id="authTabBtnFirstLogin" role="tab" aria-selected="false" aria-controls="authTabFirstLogin">初回ログイン</button>
         </div>
-        <span id="authLoginMsg" class="small warn"></span>
-      </div>
 
-      <!-- 初回登録 Step1 -->
-      <div id="authRegisterStep1" class="stack hidden">
-        <p class="small">初回登録：メールアドレスと初期パスワードを入力してください。</p>
-        <form id="registerStep1Form" autocomplete="on" class="stack">
-          <div>
-            <label for="regEmail">メールアドレス</label>
-            <input type="email" name="email" id="regEmail" autocomplete="username" placeholder="example@school.jp" required>
-          </div>
-          <div>
-            <label for="regInitialPw">初期パスワード</label>
-            <input type="password" name="initialPassword" id="regInitialPw" autocomplete="current-password" required>
-          </div>
-          <button type="submit" id="btnAuthVerifyInitial" class="btn-primary">次へ（PIN登録）</button>
-        </form>
-        <div class="small">
-          登録済みの方は <button type="button" id="btnShowLogin" class="btn-secondary" style="width:auto;display:inline;padding:.2rem .6rem;">ログインはこちら</button>
+        <div id="authTabLogin" class="auth-tab-panel active" role="tabpanel">
+          <form id="loginForm" autocomplete="on" class="stack">
+            <div>
+              <label for="loginEmail">メールアドレス</label>
+              <input type="email" name="email" id="loginEmail" autocomplete="username" placeholder="example@school.jp" required>
+            </div>
+            <div>
+              <label for="loginPin">PIN（生年月日8桁・例: 20080415）</label>
+              <input type="password" name="pin" id="loginPin" inputmode="numeric" maxlength="8" pattern="\d{8}"
+                autocomplete="current-password" placeholder="YYYYMMDD" required>
+            </div>
+            <button type="submit" id="btnAuthLogin" class="btn-primary">ログイン</button>
+          </form>
+          <p class="small">初めて使う方は <strong>初回ログイン</strong> タブへ</p>
+          <span id="authLoginMsg" class="small warn"></span>
         </div>
-        <span id="authRegisterStep1Msg" class="small warn"></span>
-      </div>
 
-      <!-- 初回登録 Step2 -->
-      <div id="authRegisterStep2" class="stack hidden">
-        <p class="small">生年月日8桁（YYYYMMDD）をPINとして登録してください。</p>
-        <form id="registerStep2Form" autocomplete="on" class="stack">
-          <div>
-            <label for="regPin">PIN（生年月日8桁）</label>
-            <input type="password" name="pin" id="regPin" inputmode="numeric" maxlength="8" pattern="\d{8}"
-              autocomplete="new-password" placeholder="YYYYMMDD" required>
-          </div>
-          <div>
-            <label for="regPinConfirm">PIN（確認）</label>
-            <input type="password" name="pinConfirm" id="regPinConfirm" inputmode="numeric" maxlength="8" pattern="\d{8}"
-              autocomplete="new-password" placeholder="YYYYMMDD" required>
-          </div>
-          <button type="submit" id="btnAuthRegisterPin" class="btn-primary">PINを登録してログイン</button>
-        </form>
-        <span id="authRegisterStep2Msg" class="small warn"></span>
+        <div id="authTabFirstLogin" class="auth-tab-panel" role="tabpanel">
+          <p class="small">PINは次回以降のログインに使います。生年月日8桁を設定してください。</p>
+          <form id="firstLoginForm" autocomplete="on" class="stack">
+            <div>
+              <label for="regEmail">メールアドレス（教員から配布）</label>
+              <input type="email" name="email" id="regEmail" autocomplete="username" placeholder="example@school.jp" required>
+            </div>
+            <div>
+              <label for="regInitialPw">初期パスワード（教員から配布）</label>
+              <input type="password" name="initialPassword" id="regInitialPw" autocomplete="current-password" required>
+            </div>
+            <div>
+              <label for="regPin">新しいPIN（生年月日8桁・例: 20080415）</label>
+              <input type="password" name="pin" id="regPin" inputmode="numeric" maxlength="8" pattern="\d{8}"
+                autocomplete="new-password" placeholder="YYYYMMDD" required>
+            </div>
+            <div>
+              <label for="regPinConfirm">PIN（確認）</label>
+              <input type="password" name="pinConfirm" id="regPinConfirm" inputmode="numeric" maxlength="8" pattern="\d{8}"
+                autocomplete="new-password" placeholder="YYYYMMDD" required>
+            </div>
+            <button type="submit" id="btnAuthFirstLogin" class="btn-primary">登録してログイン</button>
+          </form>
+          <p class="small">登録済みの方は <strong>ログイン</strong> タブをご利用ください</p>
+          <span id="authFirstLoginMsg" class="small warn"></span>
+        </div>
       </div>
 
       <!-- ログイン済み表示 -->
@@ -1028,7 +1077,7 @@
     let currentUtterance = null; // ★ GC対策：グローバル変数で保持
 
     // GAS REST 呼び出し設定（APP_CONFIG で上書き可能、未設定時は以下を使用）
-    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbwjuGa-CPg1GlThm5xIvv8sAoQT3Kj-pwQG53RbXqbm0kgjUNnDSNZmKYg5tzbC5ad8/exec';
+    let GAS_URL = (window.APP_CONFIG && window.APP_CONFIG.GAS_URL) || 'https://script.google.com/macros/s/AKfycbzyA0fL055kkVq-KGivkYijA2R422v-Kys6oeHqFeIVOhFSwA78qQkJ-9CGdEk0BVtX/exec';
 
     const AUTH_LOCK_KEY = 'auth_locked_until';
     const AUTH_FAIL_KEY = 'auth_fail_count';
@@ -1036,7 +1085,6 @@
     const AUTH_SESSION_KEY = 'auth_session';
     const MAX_AUTH_FAIL = 4;
     const LOCK_MS = 24 * 60 * 60 * 1000;
-    let pendingRegisterEmail = '';
 
     function configNotSet() {
       return !GAS_URL || GAS_URL.includes('YOUR_DEPLOYMENT_ID');
@@ -1213,7 +1261,19 @@
       }
     }
 
-    function createGoogleScriptRun() {
+    /** GAS HtmlService 直配信時はネイティブ google.script.run を優先（fetch ループバック回避） */
+    const _nativeGasRun = (function captureNativeGasRun() {
+      try {
+        if (typeof google !== 'undefined' && google.script && google.script.run &&
+          typeof google.script.run.withSuccessHandler === 'function' &&
+          typeof google.script.run.withFailureHandler === 'function') {
+          return google.script.run;
+        }
+      } catch (_) {}
+      return null;
+    })();
+
+    function createFetchGoogleScriptRun() {
       const state = { success: null, failure: null };
       const runner = {
         withSuccessHandler(fn) { state.success = fn; return runner; },
@@ -1233,9 +1293,11 @@
       return runner;
     }
 
-    window.google = window.google || {};
-    google.script = google.script || {};
-    Object.defineProperty(google.script, 'run', { get() { return createGoogleScriptRun(); } });
+    if (!_nativeGasRun) {
+      window.google = window.google || {};
+      google.script = google.script || {};
+      Object.defineProperty(google.script, 'run', { get() { return createFetchGoogleScriptRun(); } });
+    }
 
     /* ========= DOM ========= */
     const el = id => document.getElementById(id);
@@ -1253,10 +1315,11 @@
     const acctEmail = el('acctEmail'), wlOk = el('wl-ok'), wlNg = el('wl-ng'), wlName = el('wlName'), wlId4 = el('wlId4');
     const identBadge = el('identBadge');
     const authLockScreen = el('authLockScreen'), authLockUntilText = el('authLockUntilText');
-    const authLoginScreen = el('authLoginScreen'), authRegisterStep1 = el('authRegisterStep1'), authRegisterStep2 = el('authRegisterStep2');
-    const authLoggedIn = el('authLoggedIn');
-    const loginForm = el('loginForm'), registerStep1Form = el('registerStep1Form'), registerStep2Form = el('registerStep2Form');
-    const authLoginMsg = el('authLoginMsg'), authRegisterStep1Msg = el('authRegisterStep1Msg'), authRegisterStep2Msg = el('authRegisterStep2Msg');
+    const authTabsArea = el('authTabsArea'), authLoggedIn = el('authLoggedIn');
+    const authTabBtnLogin = el('authTabBtnLogin'), authTabBtnFirstLogin = el('authTabBtnFirstLogin');
+    const authTabLogin = el('authTabLogin'), authTabFirstLogin = el('authTabFirstLogin');
+    const loginForm = el('loginForm'), firstLoginForm = el('firstLoginForm');
+    const authLoginMsg = el('authLoginMsg'), authFirstLoginMsg = el('authFirstLoginMsg');
     const roleLockNote = el('roleLockNote'), roleNormalNote = el('roleNormalNote');
 
     /* ========= 認証（メール+PIN） ========= */
@@ -1344,11 +1407,29 @@
       try { localStorage.removeItem(AUTH_SESSION_KEY); } catch (_) {}
     }
 
+    function clearAuthTabMessages() {
+      if (authLoginMsg) authLoginMsg.textContent = '';
+      if (authFirstLoginMsg) authFirstLoginMsg.textContent = '';
+    }
+
+    function switchAuthTab(tab) {
+      const isLogin = tab === 'login';
+      if (authTabBtnLogin) {
+        authTabBtnLogin.classList.toggle('active', isLogin);
+        authTabBtnLogin.setAttribute('aria-selected', isLogin ? 'true' : 'false');
+      }
+      if (authTabBtnFirstLogin) {
+        authTabBtnFirstLogin.classList.toggle('active', !isLogin);
+        authTabBtnFirstLogin.setAttribute('aria-selected', !isLogin ? 'true' : 'false');
+      }
+      if (authTabLogin) authTabLogin.classList.toggle('active', isLogin);
+      if (authTabFirstLogin) authTabFirstLogin.classList.toggle('active', !isLogin);
+      clearAuthTabMessages();
+    }
+
     function hideAllAuthScreens() {
       authLockScreen.classList.add('hidden');
-      authLoginScreen.classList.add('hidden');
-      authRegisterStep1.classList.add('hidden');
-      authRegisterStep2.classList.add('hidden');
+      if (authTabsArea) authTabsArea.classList.add('hidden');
       authLoggedIn.classList.add('hidden');
     }
 
@@ -1363,25 +1444,20 @@
       identPanel.classList.remove('hidden');
     }
 
-    function showLoginScreen() {
+    function showAuthTabs(tab) {
       hideAllAuthScreens();
-      authLoginScreen.classList.remove('hidden');
+      if (authTabsArea) authTabsArea.classList.remove('hidden');
+      switchAuthTab(tab || 'login');
       identPanel.classList.remove('hidden');
       document.querySelectorAll('.card:not(#identPanel), #status, #afterSubmitLink').forEach(c => c.classList.add('hidden'));
     }
 
-    function showRegisterStep1() {
-      hideAllAuthScreens();
-      authRegisterStep1.classList.remove('hidden');
-      pendingRegisterEmail = '';
-      identPanel.classList.remove('hidden');
+    function showLoginScreen() {
+      showAuthTabs('login');
     }
 
-    function showRegisterStep2(email) {
-      hideAllAuthScreens();
-      pendingRegisterEmail = email || pendingRegisterEmail;
-      authRegisterStep2.classList.remove('hidden');
-      identPanel.classList.remove('hidden');
+    function showFirstLoginTab() {
+      showAuthTabs('first');
     }
 
     function showLoggedInUI() {
@@ -1507,38 +1583,23 @@
       }
     }
 
-    async function onAuthVerifyInitialSubmit(e) {
+    async function onFirstLoginSubmit(e) {
       e.preventDefault();
-      authRegisterStep1Msg.textContent = '';
+      authFirstLoginMsg.textContent = '';
       const email = (el('regEmail').value || '').trim();
       const initialPassword = (el('regInitialPw').value || '').trim();
+      const pin = (el('regPin').value || '').trim();
+      const pinConfirm = (el('regPinConfirm').value || '').trim();
+      if (!/^\d{8}$/.test(pin)) { authFirstLoginMsg.textContent = 'PINは8桁の数字で入力してください'; return; }
+      if (pin !== pinConfirm) { authFirstLoginMsg.textContent = 'PIN（確認）が一致しません'; return; }
       setBusy(true);
       try {
         const res = await callGAS('auth_verify_initial', { email, initialPassword });
-        pendingRegisterEmail = (res && res.email) || email.toLowerCase();
-        showRegisterStep2(pendingRegisterEmail);
+        const normalizedEmail = (res && res.email) || email.toLowerCase();
+        await callGAS('auth_register_pin', { email: normalizedEmail, pin });
+        await completeAuthSuccess(normalizedEmail);
       } catch (err) {
-        handleAuthError(err, authRegisterStep1Msg, email);
-      } finally {
-        setBusy(false);
-      }
-    }
-
-    async function onAuthRegisterPinSubmit(e) {
-      e.preventDefault();
-      authRegisterStep2Msg.textContent = '';
-      const pin = (el('regPin').value || '').trim();
-      const pinConfirm = (el('regPinConfirm').value || '').trim();
-      if (!/^\d{8}$/.test(pin)) { authRegisterStep2Msg.textContent = 'PINは8桁の数字で入力してください'; return; }
-      if (pin !== pinConfirm) { authRegisterStep2Msg.textContent = 'PIN（確認）が一致しません'; return; }
-      if (!pendingRegisterEmail) { authRegisterStep2Msg.textContent = 'セッションが切れました。初回登録からやり直してください'; showRegisterStep1(); return; }
-      setBusy(true);
-      try {
-        await callGAS('auth_register_pin', { email: pendingRegisterEmail, pin });
-        await completeAuthSuccess(pendingRegisterEmail);
-        pendingRegisterEmail = '';
-      } catch (err) {
-        handleAuthError(err, authRegisterStep2Msg, pendingRegisterEmail);
+        handleAuthError(err, authFirstLoginMsg, email);
       } finally {
         setBusy(false);
       }
@@ -1553,7 +1614,6 @@
       wlOk.classList.add('hidden');
       wlNg.classList.add('hidden');
       refreshIdentityBadges();
-      pendingRegisterEmail = '';
       const btnLogoutToolbar = el('btnLogoutToolbar');
       if (btnLogoutToolbar) btnLogoutToolbar.classList.add('hidden');
       if (isClientLocked()) {
@@ -1635,7 +1695,28 @@
       btnRecToggle.disabled = busy || chatLocked || authLocked || speakingNow || !hasStarted;
       updatePhaseButton();
     }
-    function setBusy(flag) { busy = !!flag; statusRun(busy ? '処理中…' : ''); updateUI(); }
+    function setBusy(flag, message) {
+      busy = !!flag;
+      statusRun(busy ? (message || '処理中…') : '');
+      if (!busy) removeAiThinking();
+      updateUI();
+    }
+
+    function showAiThinking(label) {
+      removeAiThinking();
+      const div = document.createElement('div');
+      div.className = 'msg assistant ai-thinking';
+      div.id = 'aiThinkingBubble';
+      const text = label || 'AIが考え中';
+      div.innerHTML = `<span class="thinking-dots" aria-live="polite">${text}<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></span>`;
+      chatDiv.appendChild(div);
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+
+    function removeAiThinking() {
+      const bubble = document.getElementById('aiThinkingBubble');
+      if (bubble) bubble.remove();
+    }
 
     /* ========= 会話描画（AI＝初期非表示） ========= */
     function buildAssistantBubble(text) {
@@ -1845,7 +1926,8 @@
       if (!currentBook || !currentUnit || !currentRow) { statusSubmit('ブック・単元・英会話を選んでください。', true); return; } if (!userRoleSel.value) { statusSubmit('あなたの役割を選んでください。', true); return; }
       const effectiveUserRole = roleLockedToA ? 'B' : userRoleSel.value; // ★
       const sysMsg = `Conversation started.\nLevel: ${cefr.value}\nTheme: ${currentBook.name} / ${currentUnit} / ${currentRow.title}\nYour Role: ${effectiveUserRole}`;
-      messages = []; chatDiv.innerHTML = ''; returnedFB = ''; hasSubmitted = false; hasStarted = true; firstUserSent = false; addMsg('system', sysMsg); selectorsFrozen = true; setBusy(true);
+      messages = []; chatDiv.innerHTML = ''; returnedFB = ''; hasSubmitted = false; hasStarted = true; firstUserSent = false; addMsg('system', sysMsg); selectorsFrozen = true;
+      setBusy(true, 'AIが考え中…'); showAiThinking();
       google.script.run.withSuccessHandler(res => {
         setBusy(false);
         if (res) {
@@ -1863,7 +1945,8 @@
     function doFeedbackFlow() {
       if (messages.filter(m => m.role === 'user').length === 0) { statusSubmit('フィードバックするには、最低1回は発話してください。', true); return; }
       revealAllAssistantTexts();
-      const ok = window.confirm('本当に英会話を終了し、フィードバックを受け取りますか？\n（これ以降、会話は続けられません）'); if (!ok) return; setBusy(true); stopRecognition();
+      const ok = window.confirm('本当に英会話を終了し、フィードバックを受け取りますか？\n（これ以降、会話は続けられません）'); if (!ok) return;
+      setBusy(true, 'フィードバックを生成中…'); showAiThinking('フィードバックを生成中'); stopRecognition();
       const tip = (currentRow && currentRow.preFeedbackTip) || ''; if (tip && !preFBShown) { addMsg('system', 'フィードバック直前のヒント：\n' + tip); preFBShown = true; }
       const effectiveUserRole = roleLockedToA ? 'B' : userRoleSel.value; // ★
       // Feedback用メタデータ
@@ -1890,9 +1973,10 @@
         text += suffix;
       }
 
-      setBusy(true); if (!firstUserSent) { firstUserSent = true; firstLineHint.textContent = ''; }
+      if (!firstUserSent) { firstUserSent = true; firstLineHint.textContent = ''; }
       const effectiveUserRole = roleLockedToA ? 'B' : userRoleSel.value; // ★
-      messages.push({ role: 'user', content: text }); addMsg('user', text); userInput.value = ''; updateUI(); scrollToBottomIfEnabled(); stopRecognition();
+      messages.push({ role: 'user', content: text }); addMsg('user', text); userInput.value = '';
+      setBusy(true, 'AIが考え中…'); showAiThinking(); updateUI(); scrollToBottomIfEnabled(); stopRecognition();
       google.script.run.withSuccessHandler(res => {
         setBusy(false);
         const reply = res || '';
@@ -1994,12 +2078,9 @@
       if (btnDiagnose) btnDiagnose.addEventListener('click', runGASDiagnostic);
       if (GAS_DEBUG) { const p = el('diagnosePanel'); if (p) p.classList.remove('hidden'); }
       if (loginForm) loginForm.addEventListener('submit', onAuthLoginSubmit);
-      if (registerStep1Form) registerStep1Form.addEventListener('submit', onAuthVerifyInitialSubmit);
-      if (registerStep2Form) registerStep2Form.addEventListener('submit', onAuthRegisterPinSubmit);
-      const btnShowRegister = el('btnShowRegister');
-      if (btnShowRegister) btnShowRegister.addEventListener('click', showRegisterStep1);
-      const btnShowLogin = el('btnShowLogin');
-      if (btnShowLogin) btnShowLogin.addEventListener('click', showLoginScreen);
+      if (firstLoginForm) firstLoginForm.addEventListener('submit', onFirstLoginSubmit);
+      if (authTabBtnLogin) authTabBtnLogin.addEventListener('click', () => switchAuthTab('login'));
+      if (authTabBtnFirstLogin) authTabBtnFirstLogin.addEventListener('click', () => switchAuthTab('first'));
       const btnLogout = el('btnLogout');
       if (btnLogout) btnLogout.addEventListener('click', logout);
       const btnLogoutToolbar = el('btnLogoutToolbar');
